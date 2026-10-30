@@ -1,0 +1,4 @@
+Data Engineer / Python Developer з досвідом розробки ETL/ELT пайплайнів.
+Стек: Python, SQL, Apache Spark, PySpark, Airflow, Databricks, Docker, Git.
+Працював з хмарними сервісами AWS (S3, Glue, Redshift, Lambda), реляційними БД (PostgreSQL) та аналітичними сховищами даних.
+Досвід побудови перевірок якості даних (data quality), пакетної обробки та оптимізації SQL-запитів.
