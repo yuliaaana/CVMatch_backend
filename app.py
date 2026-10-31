@@ -10,7 +10,7 @@ import pandas as pd
 import streamlit as st
 
 from cvmatch import (
-    fetch_jobs, load_resume_text, rank_tfidf, rank_embeddings,
+    fetch_jobs, infer_job_categories, load_resume_text, rank_tfidf, rank_embeddings,
     evaluate_rankings, save_jobs
 )
 
@@ -149,40 +149,51 @@ with st.sidebar:
     st.header("Налаштування")
     top_k = st.number_input("Кількість результатів", min_value=1, max_value=20, value=5)
     st.markdown("---")
-    st.caption("Джерела вакансій: Arbeitnow та Remotive. Для Remotive зберігається посилання на першоджерело й атрибуція.")
 
 st.subheader("1. Резюме")
 resume_file = st.file_uploader("Завантажте резюме (.txt або .pdf)", type=["txt", "pdf"])
 default_resume = """Data Engineer with experience in Python, SQL, Apache Spark and Databricks.
 Built ETL/ELT pipelines, worked with AWS S3, Glue, data warehouses and relational databases.
-Experienced in data quality checks, batch processing, distributed data processing and Git."""
+Experienced in data quality checks, batch processing, distributed data processing"""
 resume_text = default_resume
 if resume_file:
     try:
         resume_text = load_resume_text(resume_file.getvalue(), resume_file.name)
         st.success(f"Текст резюме прочитано: {len(resume_text)} символів.")
     except Exception as exc:
+        resume_text = ""
         st.error(f"Не вдалося прочитати файл: {exc}")
 
 with st.expander("Переглянути / відредагувати текст резюме", expanded=not bool(resume_file)):
     resume_text = st.text_area("Текст резюме", value=resume_text, height=180)
 
 st.subheader("2. Отримання вакансій")
+search_categories = infer_job_categories(resume_text)
+st.caption(
+    "Пошук за напрямами, визначеними з резюме: "
+    + ", ".join(search_categories)
+    + "."
+)
 col_a, col_b = st.columns([1, 2])
 with col_a:
-    fetch_clicked = st.button("Завантажити актуальні вакансії", type="primary", use_container_width=True)
+    fetch_clicked = st.button(
+        "Знайти вакансії за резюме",
+        type="primary",
+        use_container_width=True,
+        disabled=not resume_text.strip(),
+    )
 with col_b:
-    st.caption("Запит виконується під час натискання кнопки. Дані кешуються локально у data/jobs.json.")
+    st.caption("DOU та Djinni шукаються за визначеними напрямами; результати кешуються локально у data/jobs.json.")
 
 if fetch_clicked:
-    with st.spinner("Отримую вакансії з відкритих API..."):
+    with st.spinner("Шукаю актуальні вакансії на DOU та Djinni за вашим резюме..."):
         try:
-            jobs, errors = fetch_jobs()
+            jobs, errors = fetch_jobs(categories=search_categories)
             if jobs:
                 save_jobs(jobs, JOBS_PATH)
                 st.success(f"Завантажено {len(jobs)} унікальних вакансій.")
             else:
-                st.warning("API не повернули вакансій. Перевірте інтернет або завантажте попередній локальний набір.")
+                st.warning("Сайти не повернули вакансій за цими напрямами. Перевірте інтернет або завантажте попередній локальний набір.")
             for error in errors:
                 st.warning(error)
         except Exception as exc:
@@ -239,7 +250,7 @@ if "tfidf_results" in st.session_state:
     )
 
     st.subheader("4. Оцінювання релевантності")
-    st.write("Позначте кожну вакансію за ручною оцінкою: 0 — нерелевантна, 1 — частково релевантна, 2 — релевантна. Використовуйте однакові оцінки для обох методів.")
+    st.write("Позначте кожну вакансію оцінкою: 0 — нерелевантна, 1 — частково релевантна, 2 — релевантна. Використовуйте однакові оцінки для обох методів.")
     all_top = {}
     for method, frame in [
         ("TF-IDF", st.session_state["tfidf_results"]),

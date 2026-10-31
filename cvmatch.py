@@ -37,6 +37,32 @@ CATEGORY_MAP: dict[str, dict[str, str]] = {
     "QA / Automation": {"dou": "QA", "djinni": "qa"},
 }
 
+RESUME_CATEGORY_PATTERNS: dict[str, tuple[str, ...]] = {
+    "Python": (r"\bpython\b",),
+    "Data Science / ML": (
+        r"\b(?:data science|machine learning|deep learning|artificial intelligence|"
+        r"ml|ai|nlp|pytorch|tensorflow)\b",
+    ),
+    "Data Engineer": (
+        r"\b(?:data engineer|etl|elt|data pipelin\w*|apache spark|pyspark|airflow|"
+        r"databricks|snowflake|dbt|bigquery|data warehouse)\b",
+    ),
+    "Data Analyst": (
+        r"\b(?:data analyst|business analyst|data analysis|power bi|tableau|looker)\b",
+    ),
+    "JavaScript / Front-End": (
+        r"\b(?:javascript|typescript|react|vue|angular|front[- ]?end)\b",
+    ),
+    "Java": (r"\bjava\b",),
+    ".NET / C#": (r"(?:\.net|\bc#(?!\w)|\bcsharp\b)",),
+    "DevOps / SRE": (
+        r"\b(?:devops|sre|kubernetes|terraform|ci/cd|site reliability)\b",
+    ),
+    "QA / Automation": (
+        r"\b(?:qa|quality assurance|test automation|selenium|cypress|playwright)\b",
+    ),
+}
+
 UKRAINIAN_STOP_WORDS = {
     "та", "і", "й", "у", "в", "на", "з", "із", "зі", "до", "по", "за", "від",
     "для", "про", "при", "або", "чи", "але", "проте", "однак", "як", "що", "щоб",
@@ -52,6 +78,17 @@ UKRAINIAN_STOP_WORDS = {
 }
 
 BILINGUAL_STOP_WORDS = list(ENGLISH_STOP_WORDS.union(UKRAINIAN_STOP_WORDS))
+
+
+def infer_job_categories(resume_text: str) -> list[str]:
+    """Infer supported job-site categories from skills and roles in resume text."""
+    normalized_text = resume_text.casefold()
+    categories = [
+        category
+        for category, patterns in RESUME_CATEGORY_PATTERNS.items()
+        if any(re.search(pattern, normalized_text) for pattern in patterns)
+    ]
+    return categories or ["Усі категорії"]
 
 
 def clean_text(value: Any) -> str:
@@ -110,7 +147,7 @@ def _make_job_id(source: str, url: str) -> str:
     return f"{source.lower()}:{short_hash}"
 
 
-def fetch_dou_jobs(category: str = "", timeout: int = 20) -> list[dict]:
+def fetch_dou_jobs(category: str = "", timeout: int = 100) -> list[dict]:
     """Отримує вакансії з офіційної RSS-стрічки DOU.ua."""
     url = "https://jobs.dou.ua/vacancies/feeds/"
     params = {"category": category} if category else {}
@@ -150,7 +187,7 @@ def fetch_dou_jobs(category: str = "", timeout: int = 20) -> list[dict]:
     return jobs
 
 
-def fetch_djinni_jobs(keyword: str = "", timeout: int = 20) -> list[dict]:
+def fetch_djinni_jobs(keyword: str = "", timeout: int = 100) -> list[dict]:
     """
     Отримує вакансії з RSS-стрічки Djinni.co (з fallback-парсингом публічної HTML-сторінки,
     якщо RSS тимчасово закритий або змінений).
